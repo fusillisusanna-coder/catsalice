@@ -1,0 +1,325 @@
+<!DOCTYPE html> cy, r, thickness, color, startDeg = 196, endDeg = 346) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = thickness;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, startDeg * Math.PI / 180, endDeg * Math.PI / 180);
+      ctx.stroke();
+    }
+
+    function checker(x, y, w, h, size, a, b) {
+      for (let yy = y; yy < y + h; yy += size) {
+        for (let xx = x; xx < x + w; xx += size) {
+          const useA = (((xx - x) / size + (yy - y) / size) % 2 === 0);
+          rect(xx, yy, size, size, useA ? a : b);
+        }
+      }
+    }
+
+    function drawStar(x, y, phase = 0) {
+      const p1 = [[1,0],[1,1],[1,2],[0,1],[2,1]];
+      const p2 = [[1,0],[1,1],[1,2],[0,1],[2,1],[0,0],[2,0],[0,2],[2,2]];
+      const pts = phase ? p2 : p1;
+      for (const [dx, dy] of pts) rect(x + dx, y + dy, 1, 1, C3);
+    }
+
+    function drawHeart(x, y, phase = 0) {
+      const pts = [
+        [1,0],[2,0],[4,0],[5,0],
+        [0,1],[1,1],[2,1],[3,1],[4,1],[5,1],[6,1],
+        [0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[6,2],
+        [1,3],[2,3],[3,3],[4,3],[5,3],
+        [2,4],[3,4],[4,4],[3,5]
+      ];
+      const color = phase ? C2 : C3;
+      for (const [dx, dy] of pts) rect(x + dx, y + dy, 1, 1, color);
+    }
+
+    function drawOutlinedBox(x, y, w, h, fill) {
+      rect(x, y, w, h, C3);
+      rect(x + 1, y + 1, w - 2, h - 2, fill);
+    }
+
+    function drawBackground(t) {
+      checker(0, 0, W, 70, 4, C0, C1);
+      rect(0, 70, W, 50, C0);
+
+      // rainbow arch in monochrome Game Boy tones
+      const cx = 80, cy = 57;
+      arcBand(cx, cy, 44, 4, C3);
+      arcBand(cx, cy, 39, 4, C2);
+      arcBand(cx, cy, 34, 4, C1);
+      arcBand(cx, cy, 29, 4, C0);
+
+      // platform
+      rect(28, 90, 105, 5, C2);
+      rect(24, 95, 113, 3, C1);
+
+      // twinkles / decorations
+      const deco = [
+        [18,22,"star"], [27,16,"star"], [138,20,"star"], [123,14,"star"],
+        [16,42,"heart"], [137,39,"heart"], [26,56,"star"], [129,55,"star"],
+        [30,31,"star"], [126,28,"star"]
+      ];
+
+      deco.forEach((d, i) => {
+        const [x, y, kind] = d;
+        const phase = (Math.floor(t * 10) + i) % 2;
+        if (kind === "star") drawStar(x, y, phase);
+        else drawHeart(x, y, phase);
+      });
+    }
+
+    function drawCat(x, y, s, opts = {}) {
+      const {
+        dark = false,
+        flipTail = false,
+        hop = 0,
+        step = 0,
+        blink = false
+      } = opts;
+
+      const base = dark ? C3 : C2;
+      const mid  = dark ? C2 : C1;
+      const hi   = dark ? C1 : C0;
+
+      const bx = x;
+      const by = y - hop;
+
+      // body
+      rect(bx + 4*s, by + 8*s, 12*s, 8*s, C3);
+      rect(bx + 5*s, by + 9*s, 10*s, 6*s, base);
+      rect(bx + 8*s, by + 11*s, 5*s, 3*s, mid);
+
+      // head
+      rect(bx + 6*s, by + 2*s, 9*s, 8*s, C3);
+      rect(bx + 7*s, by + 3*s, 7*s, 6*s, base);
+
+      // ears
+      ctx.fillStyle = base;
+      ctx.beginPath();
+      ctx.moveTo(bx + 7*s, by + 3*s);
+      ctx.lineTo(bx + 8*s, by + 0*s);
+      ctx.lineTo(bx + 10*s, by + 3*s);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(bx + 10*s, by + 3*s);
+      ctx.lineTo(bx + 12*s, by + 0*s);
+      ctx.lineTo(bx + 13*s, by + 3*s);
+      ctx.fill();
+
+      ctx.fillStyle = mid;
+      ctx.beginPath();
+      ctx.moveTo(bx + 8*s, by + 2*s);
+      ctx.lineTo(bx + 8*s, by + 1*s);
+      ctx.lineTo(bx + 9*s, by + 2*s);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(bx + 11*s, by + 2*s);
+      ctx.lineTo(bx + 12*s, by + 1*s);
+      ctx.lineTo(bx + 12*s, by + 2*s);
+      ctx.fill();
+
+      // stripes / detail
+      [8, 10, 12].forEach(sx => rect(bx + sx*s, by + 4*s, 1*s, 1*s, C3));
+      rect(bx + 7*s,  by + 6*s, 1*s, 1*s, mid);
+      rect(bx + 13*s, by + 6*s, 1*s, 1*s, mid);
+
+      // face
+      if (blink) {
+        line(bx + 8*s, by + 5*s, bx + 9*s, by + 5*s, hi, Math.max(1, s));
+        line(bx + 11*s, by + 5*s, bx + 12*s, by + 5*s, hi, Math.max(1, s));
+      } else {
+        rect(bx + 8*s,  by + 5*s, 2, Math.max(1, s), hi);
+        rect(bx + 11*s, by + 5*s, 2, Math.max(1, s), hi);
+      }
+      rect(bx + 10*s, by + 6*s, 1*s, 1*s, mid);
+      line(bx + 9*s, by + 7*s, bx + 11*s, by + 7*s, C3, Math.max(1, s));
+
+      // legs animation
+      const seq = [
+        [0,2,1,0],
+        [1,0,0,2],
+        [0,1,2,0],
+        [1,1,0,1]
+      ];
+      const [a,b,c,d] = seq[step % 4];
+      const legs = [[6,a], [9,b], [12,c], [14,d]];
+      legs.forEach(([lx, off]) => {
+        rect(bx + lx*s, by + 15*s, 2, (4 + off)*s, C3);
+        rect(bx + lx*s + 1, by + 15*s + 1, Math.max(1, s - 1), Math.max(1, (3 + off)*s), base);
+        rect(bx + lx*s, by + (18 + off)*s, 2, 1, hi);
+      });
+
+      // tail
+      const tailA = [[15,11],[16,10],[17,9],[18,8],[19,7],[20,6]];
+      const tailB = [[15,11],[16,9],[17,8],[18,7],[19,7],[20,8]];
+      const tail = flipTail ? tailA : tailB;
+
+      tail.forEach(([tx, ty]) => rect(bx + tx*s - 1, by + ty*s - 1, s + 2, s + 2, C3));
+      tail.forEach(([tx, ty]) => rect(bx + tx*s, by + ty*s, s, s, base));
+    }
+
+    function drawUI(t) {
+      ctx.fillStyle = C3;
+      ctx.font = "bold 12px monospace";
+      ctx.fillText("30s crisis", 48, 106);
+
+      drawOutlinedBox(34, 108, 44, 10, C0);
+      drawOutlinedBox(86, 108, 40, 10, C0);
+
+      ctx.fillStyle = C3;
+      ctx.font = "bold 8px monospace";
+      ctx.fillText("Game Over", 38, 116);
+      ctx.fillText("Level Up",  91, 116);
+
+      // flickering cursor
+      const phase = Math.floor(t * 10) % 2;
+      ctx.fillStyle = C3;
+      ctx.beginPath();
+      if (phase === 0) {
+        ctx.moveTo(79, 111);
+        ctx.lineTo(83, 113);
+        ctx.lineTo(79, 115);
+      } else {
+        ctx.moveTo(81, 111);
+        ctx.lineTo(85, 113);
+        ctx.lineTo(81, 115);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function render(time) {
+      const t = time / 1000;
+      ctx.clearRect(0, 0, W, H);
+
+      drawBackground(t);
+
+      const step = Math.floor(t * 8) % 4;
+      const hopBig = Math.max(0, Math.round(2.5 * (Math.sin(t * 3) + 1) / 2));
+      const hopSmall = Math.max(0, Math.round(2.0 * (Math.sin(t * 3 + 0.9) + 1) / 2));
+
+      // shadows
+      rect(46 - (step % 2), 85, 46 + (step % 2), 3, C2);
+      rect(102, 86, 31, 3, C2);
+
+      // big cat
+      drawCat(42, 43, 3, {
+        dark: false,
+        flipTail: Math.floor(t * 10) % 2 === 0,
+        hop: hopBig,
+        step,
+        blink: Math.floor(t * 2) % 8 === 3
+      });
+
+      // small cat
+      drawCat(98, 59, 2, {
+        dark: true,
+        flipTail: Math.floor(t * 10) % 2 === 1,
+        hop: hopSmall,
+        step: (step + 2) % 4,
+        blink: Math.floor(t * 2) % 10 === 6
+      });
+
+      drawUI(t);
+
+      frame++;
+      requestAnimationFrame(render);
+    }
+
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>
+``
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>30s crisis</title>
+  <style>
+    :root {
+      --bg: #d8f8d0;
+      --gb0: #e0f8d0;
+      --gb1: #88c070;
+      --gb2: #346856;
+      --gb3: #081820;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(180deg, var(--gb0), #c7eab3);
+      font-family: monospace;
+    }
+
+    .wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding: 20px;
+    }
+
+    canvas {
+      width: min(90vw, 800px);
+      height: auto;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      border: 6px solid var(--gb3);
+      background: var(--gb0);
+      box-shadow:
+        0 0 0 6px var(--gb1),
+        0 16px 40px rgba(8, 24, 32, 0.18);
+    }
+
+    .caption {
+      color: var(--gb3);
+      font-size: 12px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <canvas id="screen" width="160" height="120"></canvas>
+    <div class="caption">Game Boy style animated scene</div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("screen");
+    const ctx = canvas.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+
+    const W = canvas.width;
+    const H = canvas.height;
+
+    // Game Boy palette
+    const C0 = "#e0f8d0"; // light
+    const C1 = "#88c070";
+    const C2 = "#346856";
+    const C3 = "#081820"; // dark
+
+    let frame = 0;
+
+    function rect(x, y, w, h, c) {
+      ctx.fillStyle = c;
+      ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+    }
+
+    function line(x1, y1, x2, y2, c, width = 1) {
+      ctx.strokeStyle = c;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      ctx.moveTo(Math.round(x1) + 0.5, Math.round(y1) + 0.5);
+      ctx.lineTo(Math.round(x2) + 0.5, Math.round(y2) + 0.5);
+      ctx.stroke();
+    }
+
