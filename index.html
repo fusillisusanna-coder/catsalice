@@ -1,303 +1,380 @@
-<!DOCTYPE html>=device-width, initial-scale=1.0" />
-  <title>30s crisis</title>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>30s crisis - pixel cats</title>
   <style>
     :root {
-      --gb0: #e0f8d0;
-      --gb1: #88c070;
-      --gb2: #346856;
-      --gb3: #081820;
+      --bg: #bfe8ff;
+      --frame: #1f3552;
+      --screen: #8fd3ff;
     }
-
-    * { box-sizing: border-box; }
-
-    body {
+    html, body {
       margin: 0;
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      background: linear-gradient(180deg, var(--gb0), #c7eab3);
+      height: 100%;
+      background: linear-gradient(#9cdcff, #bfe8ff 55%, #d8f2ff);
+      overflow: hidden;
       font-family: monospace;
     }
-
+    body {
+      display: grid;
+      place-items: center;
+    }
     .wrap {
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 12px;
-      padding: 20px;
+      padding: 16px;
     }
-
     canvas {
-      width: min(90vw, 800px);
+      width: min(96vw, 960px);
       height: auto;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
-      border: 6px solid var(--gb3);
-      background: var(--gb0);
-      box-shadow: 0 0 0 6px var(--gb1), 0 16px 40px rgba(8, 24, 32, 0.18);
+      border: 8px solid var(--frame);
+      box-shadow: 0 0 0 6px #ffffff, 0 18px 32px rgba(0,0,0,0.22);
+      background: var(--bg);
     }
-
-    .caption {
-      color: var(--gb3);
+    .hint {
       font-size: 12px;
-      letter-spacing: 1px;
-      text-transform: uppercase;
+      color: #16365a;
+      background: rgba(255,255,255,0.7);
+      border: 2px solid #16365a;
+      padding: 6px 10px;
+      image-rendering: pixelated;
     }
+    code { font-weight: 700; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <canvas id="screen" width="160" height="120"></canvas>
-    <div class="caption">Game Boy style animated scene</div>
+    <canvas id="screen" width="240" height="180" aria-label="Animated pixel cats"></canvas>
+    <div class="hint">Put the face images in the same folder as this file and name them <code>alice.png</code> and <code>me.png</code> (or edit the file names in the code).</div>
   </div>
 
   <script>
-    const canvas = document.getElementById("screen");
-    const ctx = canvas.getContext("2d");
+    const canvas = document.getElementById('screen');
+    const ctx = canvas.getContext('2d', { alpha: false });
     ctx.imageSmoothingEnabled = false;
 
-    const W = canvas.width;
-    const H = canvas.height;
+    const faceCache = document.createElement('canvas');
+    faceCache.width = 24;
+    faceCache.height = 24;
+    const fctx = faceCache.getContext('2d');
+    fctx.imageSmoothingEnabled = false;
 
-    const C0 = "#e0f8d0";
-    const C1 = "#88c070";
-    const C2 = "#346856";
-    const C3 = "#081820";
+    const ASSETS = {
+      alice: 'alice.png',
+      me: 'me.png'
+    };
 
-    function rect(x, y, w, h, c) {
-      ctx.fillStyle = c;
-      ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+    function loadImage(src) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(null);
+        img.src = src;
+      });
     }
 
-    function line(x1, y1, x2, y2, c, width = 1) {
-      ctx.strokeStyle = c;
-      ctx.lineWidth = width;
-      ctx.beginPath();
-      ctx.moveTo(Math.round(x1) + 0.5, Math.round(y1) + 0.5);
-      ctx.lineTo(Math.round(x2) + 0.5, Math.round(y2) + 0.5);
-      ctx.stroke();
+    function outlineRect(x, y, w, h, fill, stroke = '#111827') {
+      ctx.fillStyle = stroke;
+      ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
+      ctx.fillStyle = fill;
+      ctx.fillRect(x, y, w, h);
     }
 
-    function arcBand(cx, cy, r, thickness, color, startDeg = 196, endDeg = 346) {
-      ctx.strokeStyle = color;
-      ctx.lineWidth = thickness;
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, startDeg * Math.PI / 180, endDeg * Math.PI / 180);
-      ctx.stroke();
-    }
-
-    function checker(x, y, w, h, size, a, b) {
-      for (let yy = y; yy < y + h; yy += size) {
-        for (let xx = x; xx < x + w; xx += size) {
-          const useA = (((xx - x) / size + (yy - y) / size) % 2 === 0);
-          rect(xx, yy, size, size, useA ? a : b);
-        }
+    function drawPixelFace(img, x, y, w, h) {
+      ctx.fillStyle = '#ffe7d1';
+      ctx.fillRect(x, y, w, h);
+      if (!img) {
+        // fallback face if files are missing
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(x + 3, y + 4, 2, 2);
+        ctx.fillRect(x + w - 5, y + 4, 2, 2);
+        ctx.fillRect(x + (w >> 1) - 1, y + 7, 2, 2);
+        ctx.fillStyle = '#c2410c';
+        ctx.fillRect(x + (w >> 1) - 2, y + 10, 4, 1);
+        return;
       }
+      fctx.clearRect(0, 0, faceCache.width, faceCache.height);
+      const s = Math.min(img.naturalWidth, img.naturalHeight);
+      const sx = ((img.naturalWidth - s) / 2) | 0;
+      const sy = ((img.naturalHeight - s) / 2) | 0;
+      fctx.drawImage(img, sx, sy, s, s, 0, 0, 24, 24);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(faceCache, 0, 0, 24, 24, x, y, w, h);
     }
 
-    function drawStar(x, y, phase = 0) {
-      const p1 = [[1,0],[1,1],[1,2],[0,1],[2,1]];
-      const p2 = [[1,0],[1,1],[1,2],[0,1],[2,1],[0,0],[2,0],[0,2],[2,2]];
-      const pts = phase ? p2 : p1;
-      for (const [dx, dy] of pts) rect(x + dx, y + dy, 1, 1, C3);
+    function drawPaw(x, y, color) {
+      outlineRect(x, y, 4, 3, color);
+      ctx.fillStyle = '#ffffff22';
+      ctx.fillRect(x + 1, y, 1, 1);
     }
 
-    function drawHeart(x, y, phase = 0) {
-      const pts = [
+    function drawHeart(x, y, c1 = '#ff5ea8', c2 = '#b3125b') {
+      const p = [
         [1,0],[2,0],[4,0],[5,0],
         [0,1],[1,1],[2,1],[3,1],[4,1],[5,1],[6,1],
         [0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[6,2],
         [1,3],[2,3],[3,3],[4,3],[5,3],
-        [2,4],[3,4],[4,4],[3,5]
+        [2,4],[3,4],[4,4],
+        [3,5]
       ];
-      const color = phase ? C2 : C3;
-      for (const [dx, dy] of pts) rect(x + dx, y + dy, 1, 1, color);
+      ctx.fillStyle = c2;
+      p.forEach(([px, py]) => ctx.fillRect(x + px, y + py, 1, 1));
+      ctx.fillStyle = c1;
+      p.filter(([px, py]) => py < 3).forEach(([px, py]) => ctx.fillRect(x + px, y + py, 1, 1));
     }
 
-    function drawOutlinedBox(x, y, w, h, fill) {
-      rect(x, y, w, h, C3);
-      rect(x + 1, y + 1, w - 2, h - 2, fill);
+    function drawStar(x, y, c = '#ffd84d') {
+      ctx.fillStyle = '#8a5d00';
+      [[1,0],[0,1],[1,1],[2,1],[1,2]].forEach(([px,py]) => ctx.fillRect(x+px, y+py, 1, 1));
+      ctx.fillStyle = c;
+      [[1,0],[0,1],[1,1],[2,1],[1,2]].forEach(([px,py]) => ctx.fillRect(x+px, y+py, 1, 1));
     }
 
-    function drawBackground(t) {
-      checker(0, 0, W, 70, 4, C0, C1);
-      rect(0, 70, W, 50, C0);
-
-      const cx = 80, cy = 57;
-      arcBand(cx, cy, 44, 4, C3);
-      arcBand(cx, cy, 39, 4, C2);
-      arcBand(cx, cy, 34, 4, C1);
-      arcBand(cx, cy, 29, 4, C0);
-
-      rect(28, 90, 105, 5, C2);
-      rect(24, 95, 113, 3, C1);
-
-      const deco = [
-        [18,22,"star"], [27,16,"star"], [138,20,"star"], [123,14,"star"],
-        [16,42,"heart"], [137,39,"heart"], [26,56,"star"], [129,55,"star"],
-        [30,31,"star"], [126,28,"star"]
-      ];
-
-      deco.forEach((d, i) => {
-        const [x, y, kind] = d;
-        const phase = (Math.floor(t * 10) + i) % 2;
-        if (kind === "star") drawStar(x, y, phase);
-        else drawHeart(x, y, phase);
-      });
+    function drawSparkle(x, y, c = '#ffffff') {
+      ctx.fillStyle = c;
+      [[1,0],[0,1],[1,1],[2,1],[1,2]].forEach(([px,py]) => ctx.fillRect(x+px, y+py, 1, 1));
+      ctx.fillStyle = '#9fe8ff';
+      ctx.fillRect(x+1, y+1, 1, 1);
     }
 
-    function drawCat(x, y, s, opts = {}) {
-      const dark = opts.dark || false;
-      const flipTail = opts.flipTail || false;
-      const hop = opts.hop || 0;
-      const step = opts.step || 0;
-      const blink = opts.blink || false;
-
-      const base = dark ? C3 : C2;
-      const mid  = dark ? C2 : C1;
-      const hi   = dark ? C1 : C0;
-
-      const bx = x;
-      const by = y - hop;
-
-      rect(bx + 4*s, by + 8*s, 12*s, 8*s, C3);
-      rect(bx + 5*s, by + 9*s, 10*s, 6*s, base);
-      rect(bx + 8*s, by + 11*s, 5*s, 3*s, mid);
-
-      rect(bx + 6*s, by + 2*s, 9*s, 8*s, C3);
-      rect(bx + 7*s, by + 3*s, 7*s, 6*s, base);
-
-      ctx.fillStyle = base;
-      ctx.beginPath();
-      ctx.moveTo(bx + 7*s, by + 3*s);
-      ctx.lineTo(bx + 8*s, by + 0*s);
-      ctx.lineTo(bx + 10*s, by + 3*s);
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.moveTo(bx + 10*s, by + 3*s);
-      ctx.lineTo(bx + 12*s, by + 0*s);
-      ctx.lineTo(bx + 13*s, by + 3*s);
-      ctx.fill();
-
-      ctx.fillStyle = mid;
-      ctx.beginPath();
-      ctx.moveTo(bx + 8*s, by + 2*s);
-      ctx.lineTo(bx + 8*s, by + 1*s);
-      ctx.lineTo(bx + 9*s, by + 2*s);
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.moveTo(bx + 11*s, by + 2*s);
-      ctx.lineTo(bx + 12*s, by + 1*s);
-      ctx.lineTo(bx + 12*s, by + 2*s);
-      ctx.fill();
-
-      [8, 10, 12].forEach(sx => rect(bx + sx*s, by + 4*s, 1*s, 1*s, C3));
-      rect(bx + 7*s,  by + 6*s, 1*s, 1*s, mid);
-      rect(bx + 13*s, by + 6*s, 1*s, 1*s, mid);
-
-      if (blink) {
-        line(bx + 8*s, by + 5*s, bx + 9*s, by + 5*s, hi, Math.max(1, s));
-        line(bx + 11*s, by + 5*s, bx + 12*s, by + 5*s, hi, Math.max(1, s));
-      } else {
-        rect(bx + 8*s,  by + 5*s, 2, Math.max(1, s), hi);
-        rect(bx + 11*s, by + 5*s, 2, Math.max(1, s), hi);
+    function drawRainbow(t) {
+      const cx = 120;
+      const cy = 96;
+      const bands = ['#ff5b6e','#ff9f43','#ffe066','#6ee786','#58c2ff','#9f7aea'];
+      for (let i = 0; i < bands.length; i++) {
+        const r = 62 - i * 5;
+        const wobble = Math.sin(t * 2 + i * 0.8) * 1.2;
+        ctx.strokeStyle = bands[i];
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(cx, cy + 6 + wobble, r, Math.PI * 0.10, Math.PI * 0.90);
+        ctx.stroke();
       }
-
-      rect(bx + 10*s, by + 6*s, 1*s, 1*s, mid);
-      line(bx + 9*s, by + 7*s, bx + 11*s, by + 7*s, C3, Math.max(1, s));
-
-      const seq = [
-        [0,2,1,0],
-        [1,0,0,2],
-        [0,1,2,0],
-        [1,1,0,1]
-      ];
-      const legState = seq[step % 4];
-      const legs = [[6,legState[0]], [9,legState[1]], [12,legState[2]], [14,legState[3]]];
-
-      legs.forEach(([lx, off]) => {
-        rect(bx + lx*s, by + 15*s, 2, (4 + off)*s, C3);
-        rect(bx + lx*s + 1, by + 15*s + 1, Math.max(1, s - 1), Math.max(1, (3 + off)*s), base);
-        rect(bx + lx*s, by + (18 + off)*s, 2, 1, hi);
-      });
-
-      const tailA = [[15,11],[16,10],[17,9],[18,8],[19,7],[20,6]];
-      const tailB = [[15,11],[16,9],[17,8],[18,7],[19,7],[20,8]];
-      const tail = flipTail ? tailA : tailB;
-
-      tail.forEach(([tx, ty]) => rect(bx + tx*s - 1, by + ty*s - 1, s + 2, s + 2, C3));
-      tail.forEach(([tx, ty]) => rect(bx + tx*s, by + ty*s, s, s, base));
     }
 
-    function drawUI(t) {
-      ctx.fillStyle = C3;
-      ctx.font = "bold 12px monospace";
-      ctx.fillText("30s crisis", 48, 106);
+    function shadowRect(x, y, w, h) {
+      ctx.fillStyle = 'rgba(21, 46, 76, 0.18)';
+      ctx.fillRect(x, y, w, h);
+    }
 
-      drawOutlinedBox(34, 108, 44, 10, C0);
-      drawOutlinedBox(86, 108, 40, 10, C0);
+    function drawCat({x, y, scale, body, faceImg, t, phase, isAlice}) {
+      const s = scale;
+      const bob = Math.sin(t * 8 + phase) * 1.4;
+      const jump = Math.max(0, Math.sin(t * 3.2 + phase)) ** 2 * (isAlice ? 8 : 6);
+      const wag = Math.sin(t * 10 + phase) * 0.55;
+      const walk = Math.sin(t * 12 + phase);
+      const walk2 = Math.sin(t * 12 + phase + Math.PI);
+      const xx = x;
+      const yy = y - jump + bob;
 
-      ctx.font = "bold 8px monospace";
-      ctx.fillStyle = C3;
-      ctx.fillText("Game Over", 38, 116);
-      ctx.fillText("Level Up", 91, 116);
+      // shadow
+      shadowRect(xx - 18*s, y + 21*s, 36*s, 4*s);
 
-      const phase = Math.floor(t * 10) % 2;
-      ctx.fillStyle = C3;
-      ctx.beginPath();
-      if (phase === 0) {
-        ctx.moveTo(79, 111);
-        ctx.lineTo(83, 113);
-        ctx.lineTo(79, 115);
+      // tail
+      ctx.save();
+      ctx.translate(xx + 16*s, yy + 4*s);
+      ctx.rotate(wag * 0.35);
+      outlineRect(0, 0, 4*s, 4*s, body.mid, body.outline);
+      outlineRect(4*s, -2*s, 4*s, 4*s, body.main, body.outline);
+      outlineRect(8*s, -5*s, 4*s, 4*s, body.main, body.outline);
+      outlineRect(12*s, -7*s, 4*s, 4*s, body.light, body.outline);
+      ctx.restore();
+
+      // body
+      outlineRect(xx - 14*s, yy + 3*s, 28*s, 16*s, body.main, body.outline);
+      outlineRect(xx - 11*s, yy + 7*s, 22*s, 10*s, body.mid, body.outline);
+      outlineRect(xx - 5*s, yy + 10*s, 10*s, 4*s, body.belly, body.outline);
+
+      // legs
+      const lf = walk > 0 ? 8*s : 11*s;
+      const rf = walk <= 0 ? 8*s : 11*s;
+      const lb = walk2 > 0 ? 8*s : 11*s;
+      const rb = walk2 <= 0 ? 8*s : 11*s;
+      outlineRect(xx - 11*s, yy + 16*s, 5*s, lf, body.mid, body.outline);
+      outlineRect(xx - 4*s, yy + 16*s, 5*s, lb, body.mid, body.outline);
+      outlineRect(xx + 3*s, yy + 16*s, 5*s, rb, body.mid, body.outline);
+      outlineRect(xx + 10*s, yy + 16*s, 5*s, rf, body.mid, body.outline);
+      drawPaw(xx - 11*s, yy + 16*s + lf, body.light);
+      drawPaw(xx - 4*s, yy + 16*s + lb, body.light);
+      drawPaw(xx + 3*s, yy + 16*s + rb, body.light);
+      drawPaw(xx + 10*s, yy + 16*s + rf, body.light);
+
+      // head
+      outlineRect(xx - 10*s, yy - 10*s, 20*s, 18*s, body.main, body.outline);
+      // ears
+      outlineRect(xx - 8*s, yy - 16*s, 6*s, 7*s, body.main, body.outline);
+      outlineRect(xx + 2*s, yy - 16*s, 6*s, 7*s, body.main, body.outline);
+      outlineRect(xx - 6*s, yy - 14*s, 2*s, 3*s, body.ear, body.outline);
+      outlineRect(xx + 4*s, yy - 14*s, 2*s, 3*s, body.ear, body.outline);
+
+      // cheeks / muzzle
+      outlineRect(xx - 7*s, yy + 0*s, 14*s, 6*s, '#ffe7d1', body.outline);
+      drawPixelFace(faceImg, xx - 6*s, yy - 6*s, 12*s, 12*s);
+
+      // eyes overlay to keep readable in pixel style
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(xx - 4*s, yy - 1*s, 2*s, 2*s);
+      ctx.fillRect(xx + 2*s, yy - 1*s, 2*s, 2*s);
+      ctx.fillStyle = isAlice ? '#ffb3c7' : '#9be7ff';
+      ctx.fillRect(xx - 4*s, yy + 1*s, 2*s, 1*s);
+      ctx.fillRect(xx + 2*s, yy + 1*s, 2*s, 1*s);
+
+      // nose + mouth + whiskers
+      ctx.fillStyle = '#b91c1c';
+      ctx.fillRect(xx - 1*s, yy + 1*s, 2*s, 2*s);
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(xx - 1*s, yy + 3*s, 1*s, 2*s);
+      ctx.fillRect(xx + 0*s, yy + 3*s, 1*s, 2*s);
+      ctx.fillRect(xx - 7*s, yy + 3*s, 4*s, 1*s);
+      ctx.fillRect(xx + 3*s, yy + 3*s, 4*s, 1*s);
+      ctx.fillRect(xx - 7*s, yy + 5*s, 4*s, 1*s);
+      ctx.fillRect(xx + 3*s, yy + 5*s, 4*s, 1*s);
+
+      // tiny badge bow / collar accent
+      if (isAlice) {
+        outlineRect(xx - 1*s, yy + 8*s, 2*s, 2*s, '#ffd84d', body.outline);
       } else {
-        ctx.moveTo(81, 111);
-        ctx.lineTo(85, 113);
-        ctx.lineTo(81, 115);
+        outlineRect(xx - 1*s, yy + 8*s, 2*s, 2*s, '#58c2ff', body.outline);
       }
-      ctx.closePath();
-      ctx.fill();
     }
 
-    function render(time) {
-      const t = time / 1000;
-      ctx.clearRect(0, 0, W, H);
-
-      drawBackground(t);
-
-      const step = Math.floor(t * 8) % 4;
-      const hopBig = Math.max(0, Math.round(2.5 * (Math.sin(t * 3) + 1) / 2));
-      const hopSmall = Math.max(0, Math.round(2.0 * (Math.sin(t * 3 + 0.9) + 1) / 2));
-
-      rect(46 - (step % 2), 85, 46 + (step % 2), 3, C2);
-      rect(102, 86, 31, 3, C2);
-
-      drawCat(42, 43, 3, {
-        dark: false,
-        flipTail: Math.floor(t * 10) % 2 === 0,
-        hop: hopBig,
-        step: step,
-        blink: Math.floor(t * 2) % 8 === 3
-      });
-
-      drawCat(98, 59, 2, {
-        dark: true,
-        flipTail: Math.floor(t * 10) % 2 === 1,
-        hop: hopSmall,
-        step: (step + 2) % 4,
-        blink: Math.floor(t * 2) % 10 === 6
-      });
-
-      drawUI(t);
-      requestAnimationFrame(render);
+    function drawPixelText(text, x, y, color, align = 'center', scale = 1) {
+      ctx.save();
+      ctx.font = `${8 * scale}px monospace`;
+      ctx.textAlign = align;
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = '#10233b';
+      ctx.fillText(text, x + 1, y + 1);
+      ctx.fillStyle = color;
+      ctx.fillText(text, x, y);
+      ctx.restore();
     }
 
-    requestAnimationFrame(render);
+    function drawSelector(x, y, blink) {
+      if (!blink) return;
+      ctx.fillStyle = '#10233b';
+      ctx.fillRect(x, y + 2, 4, 4);
+      ctx.fillStyle = '#ffe066';
+      ctx.fillRect(x + 1, y + 1, 4, 4);
+      ctx.fillStyle = '#ff9f43';
+      ctx.fillRect(x + 2, y + 2, 2, 2);
+    }
+
+    const particleSeeds = Array.from({ length: 28 }, (_, i) => ({
+      x: (i * 31) % 220 + 8,
+      y: (i * 19) % 90 + 8,
+      speed: 0.3 + (i % 5) * 0.1,
+      drift: (i % 7) * 0.15,
+      type: ['sparkle','star','heart'][i % 3],
+      phase: i * 0.63,
+      scale: 1 + (i % 2)
+    }));
+
+    function drawParticles(t) {
+      for (const p of particleSeeds) {
+        const x = p.x + Math.sin(t * 1.3 + p.phase) * (4 + p.drift * 3);
+        const y = p.y + Math.cos(t * 1.7 + p.phase) * 3 + Math.sin(t * p.speed + p.phase) * 2;
+        if (p.type === 'sparkle') drawSparkle(x | 0, y | 0, '#ffffff');
+        if (p.type === 'star') drawStar(x | 0, y | 0, '#ffd84d');
+        if (p.type === 'heart') drawHeart(x | 0, y | 0, '#ff82b8', '#cf256f');
+      }
+    }
+
+    function drawGround() {
+      ctx.fillStyle = '#9fd6ff';
+      ctx.fillRect(0, 132, 240, 48);
+      for (let i = 0; i < 240; i += 8) {
+        ctx.fillStyle = i % 16 === 0 ? '#aee0ff' : '#93cef9';
+        ctx.fillRect(i, 138 + ((i / 8) % 2), 8, 4);
+      }
+    }
+
+    const paletteAlice = {
+      main: '#ef4444',
+      mid: '#dc2626',
+      light: '#fb7185',
+      belly: '#ffd4cf',
+      ear: '#ffc0cb',
+      outline: '#7f1d1d'
+    };
+
+    const paletteMe = {
+      main: '#111827',
+      mid: '#1f2937',
+      light: '#334155',
+      belly: '#dbeafe',
+      ear: '#93c5fd',
+      outline: '#020617'
+    };
+
+    Promise.all([loadImage(ASSETS.alice), loadImage(ASSETS.me)]).then(([aliceImg, meImg]) => {
+      function frame(now) {
+        const t = now / 1000;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // sky
+        ctx.fillStyle = '#bfe8ff';
+        ctx.fillRect(0, 0, 240, 180);
+        ctx.fillStyle = '#d9f4ff';
+        ctx.fillRect(0, 0, 240, 20);
+
+        drawRainbow(t);
+        drawParticles(t);
+        drawGround();
+
+        drawCat({
+          x: 96,
+          y: 92,
+          scale: 2,
+          body: paletteAlice,
+          faceImg: aliceImg,
+          t,
+          phase: 0.0,
+          isAlice: true
+        });
+
+        drawCat({
+          x: 144,
+          y: 104,
+          scale: 1.5,
+          body: paletteMe,
+          faceImg: meImg,
+          t,
+          phase: 1.3,
+          isAlice: false
+        });
+
+        // floating extra icons around cats
+        drawHeart(58 + ((Math.sin(t * 2.2) * 3) | 0), 42 + ((Math.cos(t * 1.3) * 2) | 0));
+        drawStar(184 + ((Math.cos(t * 1.8) * 2) | 0), 40 + ((Math.sin(t * 1.2) * 3) | 0));
+        drawSparkle(164 + ((Math.sin(t * 2.5) * 3) | 0), 24 + ((Math.cos(t * 1.6) * 2) | 0));
+        drawSparkle(74 + ((Math.cos(t * 2.0) * 3) | 0), 28 + ((Math.sin(t * 1.8) * 2) | 0));
+
+        // title + options panel
+        outlineRect(42, 140, 156, 34, '#dff5ff', '#29537a');
+        drawPixelText('30s crisis', 120, 146, '#16365a', 'center', 1);
+        drawPixelText('GAME OVER', 86, 158, '#cf256f', 'center', 0.9);
+        drawPixelText('LEVEL UP', 154, 158, '#1f9d55', 'center', 0.9);
+        drawSelector(50, 157, Math.floor(t * 2) % 2 === 0);
+        drawSelector(119, 157, Math.floor(t * 2) % 2 === 1);
+
+        // decorative border corners
+        ctx.fillStyle = '#ffffff';
+        [[6,6],[230,6],[6,170],[230,170]].forEach(([x,y]) => {
+          ctx.fillRect(x, y, 4, 1);
+          ctx.fillRect(x, y + 1, 1, 3);
+        });
+
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    });
   </script>
 </body>
 </html>
-``
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
